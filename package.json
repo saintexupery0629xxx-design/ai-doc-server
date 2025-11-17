@@ -5,6 +5,7 @@
   "main": "openai.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "npm rebuild duckdb --build-from-source",
     "start": "node server.js"
   },
   "repository": {
