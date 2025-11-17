@@ -2,10 +2,8 @@
   "name": "ai-doc-server",
   "version": "1.0.0",
   "description": "",
-  "main": "openai.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "npm rebuild duckdb --build-from-source",
     "start": "node server.js"
   },
   "repository": {
@@ -21,10 +19,11 @@
   },
   "homepage": "https://github.com/saintexupery0629xxx-design/ai-doc-server#readme",
   "dependencies": {
+    "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "duckdb": "^1.4.2",
     "express": "^5.1.0",
     "openai": "^6.9.0"
   }
 }
+
