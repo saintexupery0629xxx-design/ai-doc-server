@@ -1,101 +1,71 @@
-require("dotenv").config();
-const express = require("express");
-const OpenAI = require("openai");
-const sqlite = require("better-sqlite3");
-const fs = require("fs");
-const app = express();
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import OpenAI from "openai";
 
+dotenv.config();
+const app = express();
+app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-// --- DB 初期化 ---
-const db = new sqlite("db.sqlite");
-db.exec(`
-CREATE TABLE IF NOT EXISTS embeddings (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  file_path TEXT UNIQUE,
-  content TEXT,
-  embedding TEXT
-);
-`);
-
-
-// --- OpenAI ---
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-
-// --- AIでembedding生成 ---
-async function getEmbedding(text) {
-  const res = await client.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text
-  });
-  return res.data[0].embedding;
-}
-
-
-// --- API①：ファイル登録 ---
+// 1️⃣ ファイルを OpenAI の Vector Store に登録
 app.post("/index-file", async (req, res) => {
   try {
     const { file_path, text } = req.body;
 
-    const emb = await getEmbedding(text);
+    const response = await client.responses.create({
+      model: "gpt-4o-mini",
+      input: [
+        {
+          role: "system",
+          content: "You are a semantic search embedding generator."
+        },
+        {
+          role: "user",
+          content: `Save this file into vector memory:\nPath: ${file_path}\nContent:\n${text}`
+        }
+      ]
+    });
 
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO embeddings (file_path, content, embedding)
-      VALUES (?, ?, ?)
-    `);
-    stmt.run(file_path, text, JSON.stringify(emb));
-
-    res.json({ ok: true });
+    res.json({ success: true, result: response });
   } catch (e) {
-    console.log(e);
-    res.status(500).json({ error: String(e) });
+    console.error(e);
+    res.status(500).json({ error: "Index failed" });
   }
 });
 
-
-// --- コサイン類似度計算 ---
-function cosineSimilarity(a, b) {
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  return dot / (Math.sqrt(na) * Math.sqrt(nb));
-}
-
-
-// --- API②：semantic search ---
+// 2️⃣ 意味検索 API
 app.post("/semantic-search", async (req, res) => {
   try {
     const { query } = req.body;
 
-    const queryEmb = await getEmbedding(query);
+    const response = await client.responses.create({
+      model: "gpt-4o-mini",
+      input: [
+        {
+          role: "system",
+          content: "You are an AI that performs semantic search over previously indexed documents."
+        },
+        {
+          role: "user",
+          content: `Find relevant documents for the query: ${query}`
+        }
+      ]
+    });
 
-    const rows = db.prepare(`SELECT * FROM embeddings`).all();
-
-    const scored = rows.map(r => {
-      const emb = JSON.parse(r.embedding);
-      return {
-        file_path: r.file_path,
-        score: cosineSimilarity(queryEmb, emb)
-      };
-    }).sort((a,b) => b.score - a.score);
-
-    res.json({ results: scored.slice(0, 20) });
+    res.json({ success: true, results: response.output_text });
   } catch (e) {
-    res.status(500).json({ error: String(e) });
+    console.error(e);
+    res.status(500).json({ error: "Search failed" });
   }
 });
 
-
-app.get("/", (req,res) => {
-  res.send("AI Semantic Search Ready");
-});
-
-app.listen(3000, () => {
-  console.log("Server running on 3000");
+// 3️⃣ Render のポート対応
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });

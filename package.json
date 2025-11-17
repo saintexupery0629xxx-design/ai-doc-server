@@ -19,7 +19,6 @@
   },
   "homepage": "https://github.com/saintexupery0629xxx-design/ai-doc-server#readme",
   "dependencies": {
-    "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
